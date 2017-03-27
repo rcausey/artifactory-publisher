@@ -6,6 +6,34 @@ var
     urlUtil = require('url'),
     _ = require('lodash');
 
+function fileExists (artUrl, options) {
+    var deferred = Q.defer();
+    options = options || {};
+    var credentials = options.credentials;
+
+    var ajaxSettings = _.assign({
+        method: 'HEAD',
+        url: artUrl
+    });
+
+    if (credentials && credentials.username) {
+        ajaxSettings = _.assign(ajaxSettings, {
+            auth: credentials
+        });
+    }
+
+    request.head(ajaxSettings, function(error, response) {
+        if (error) {
+            return deferred.reject({
+                message: 'Error making http request: ' + error
+            });
+        } 
+
+        return deferred.resolve(response.statusCode === 200);
+    });
+    return deferred.promise;
+}
+
 function uploadFile (filePath, artUrl, options, headers) {
     var deferred = Q.defer();
     options = options || {};
@@ -17,6 +45,7 @@ function uploadFile (filePath, artUrl, options, headers) {
         headers: headers,
         proxy: options.proxy
     });
+
     if (credentials && credentials.username) {
         ajaxSettings = _.assign(ajaxSettings, {
             auth: credentials
@@ -93,10 +122,18 @@ module.exports = {
      * @param {String} [options.credentials.username] Artifactory user name
      * @param {String} [options.credentials.password] Artifactory user password
      * @param {String} [options.proxy] A proxy url to use for sending http requests
+     * @param {String} [options.overwrite] Whether or not to overwrite the package if it already exists
      * @return {Promise} returns a Q promise to be resolved when the artifact is done being published
      */
     publish: function(filePath, artUrl, options) {
-        return publishFile(filePath, artUrl, options);
-    }
+        return fileExists(artUrl, options).then(function(exists) {
+            if (exists && !options.overwrite) {
+                return false;
+            }
 
+            return publishFile(filePath, artUrl, options).then(function() {
+                return true;
+            });
+        });
+    },
 };

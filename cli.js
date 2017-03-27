@@ -35,10 +35,17 @@ var conf = yargs
     .options('proxy', {
         describe: 'A proxy url to use for sending http requests'
     })
+    .options('o', {
+        alias: 'overwrite',
+        describe: 'Whether or not to overwrite the package if it exists',
+    })
     .epilog('Have fun.')
     .argv;
 
-var options = {};
+var options = {
+    overwrite: !!conf.o
+};
+
 if (conf.user) {
     options.credentials = {
         username: conf.user,
@@ -50,8 +57,12 @@ if (conf.proxy) {
     options.proxy = conf.proxy;
 }
 
-publisher.publish(conf.file, conf.target, options).then(function () {
-    console.log('Upload successfully finished!');
+publisher.publish(conf.file, conf.target, options).then(function (published) {
+    if (published) {
+        console.log('Upload successfully finished!');
+    } else {
+        console.log('Upload aborted. File already exists.');
+    }
     process.exit(0);
 }).catch(function (err) {
     console.log('Upload failed!', err.message);
